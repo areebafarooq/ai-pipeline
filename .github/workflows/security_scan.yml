@@ -10,15 +10,8 @@ jobs:
   security-scans:
     runs-on: ubuntu-latest
 
-    # Run your web app as a service so ZAP/Nuclei can access it
-    services:
-      app:
-        image: your-app-image:latest   # <-- replace with your Docker image
-        ports:
-          - 8000:8000
-
     steps:
-      # 1️ Checkout the repository
+      # 1️ Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -26,18 +19,25 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      # 3️ Create reports folder
+      # 3️ Build and run your app
+      - name: Build and run app
+        run: |
+          docker build -t local-app ./      # make sure Dockerfile exists
+          docker run -d --name app -p 8000:8000 local-app
+        # App will be accessible at http://localhost:8000
+
+      # 4️ Create reports folder
       - name: Create reports folder
         run: mkdir -p reports
 
-      # 4️ Run Python Security Agent
+      # 5️ Run Security Agent
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
-          TARGET_URL: http://app:8000   # <-- point to the service container
+          TARGET_URL: http://localhost:8000
           REPO_DIR: ${{ github.workspace }}/repo
 
-      # 5️ Upload security reports
+      # 6️ Upload reports
       - name: Upload Security Reports
         uses: actions/upload-artifact@v4
         with:
