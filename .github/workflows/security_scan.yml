@@ -39,4 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: security-reports
-          path: reports/
+          path: |
+            reports/semgrep_report.txt
+            reports/zap_report.html
+            reports/nuclei_report.txt
