@@ -10,6 +10,13 @@ jobs:
   security-scans:
     runs-on: ubuntu-latest
 
+    # Run your web app as a service so ZAP/Nuclei can access it
+    services:
+      app:
+        image: your-app-image:latest   # <-- replace with your Docker image
+        ports:
+          - 8000:8000
+
     steps:
       # 1️ Checkout the repository
       - name: Checkout Code
@@ -27,10 +34,10 @@ jobs:
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
-          TARGET_URL: http://host.docker.internal:8000
+          TARGET_URL: http://app:8000   # <-- point to the service container
           REPO_DIR: ${{ github.workspace }}/repo
 
-      # 5️ Upload reports as artifacts
+      # 5️ Upload security reports
       - name: Upload Security Reports
         uses: actions/upload-artifact@v4
         with:

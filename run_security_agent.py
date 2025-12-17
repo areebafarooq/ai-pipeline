@@ -5,13 +5,12 @@ import os
 # CI/CD-friendly Security Agent
 # ----------------------------
 
-# Base directory for reports
 BASE = os.getcwd()
 REPORTS_DIR = os.path.join(BASE, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 # Target URLs (set via environment variables or default)
-TARGET_URL = os.environ.get("TARGET_URL", "http://host.docker.internal:8000")
+TARGET_URL = os.environ.get("TARGET_URL", "http://app:8000")  # <-- use container hostname in CI
 REPO_DIR = os.environ.get("REPO_DIR", os.path.join(BASE, "repo"))
 
 def run(cmd, name="Command"):
@@ -25,7 +24,7 @@ def run(cmd, name="Command"):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         encoding="utf-8",
-        errors="ignore"  # avoids UnicodeDecodeError
+        errors="ignore"
     )
     
     for line in process.stdout:
@@ -41,7 +40,8 @@ def run(cmd, name="Command"):
 # 1️⃣ Run Semgrep
 # ----------------------------
 run(
-    f'docker run --rm -v "{REPO_DIR}:/src" -v "{REPORTS_DIR}:/reports" semgrep/semgrep semgrep --config=auto /src --json -o /reports/semgrep_report.txt',
+    f'docker run --rm -v "{REPO_DIR}:/src" -v "{REPORTS_DIR}:/reports" '
+    f'semgrep/semgrep semgrep --config=auto /src --json -o /reports/semgrep_report.txt',
     "Semgrep Scan"
 )
 
@@ -49,7 +49,8 @@ run(
 # 2️⃣ Run OWASP ZAP Baseline Scan
 # ----------------------------
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/zap/wrk" zaproxy/zap-stable zap-baseline.py -t {TARGET_URL} -r /zap/wrk/zap_report.html',
+    f'docker run --rm --network host -v "{REPORTS_DIR}:/zap/wrk" '
+    f'zaproxy/zap-stable zap-baseline.py -t {TARGET_URL} -r /zap/wrk/zap_report.html',
     "OWASP ZAP Scan"
 )
 
@@ -57,7 +58,7 @@ run(
 # 3️⃣ Run Nuclei Scan
 # ----------------------------
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/root" projectdiscovery/nuclei -u {TARGET_URL} -o /root/nuclei_report.txt',
+    f'docker run --rm -v "{REPORTS_DIR}:/reports" projectdiscovery/nuclei -u {TARGET_URL} -o /reports/nuclei_report.txt',
     "Nuclei Scan"
 )
 
