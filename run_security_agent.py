@@ -10,7 +10,7 @@ BASE = os.getcwd()
 REPORTS_DIR = os.path.join(BASE, "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
-# Target URLs (set via environment variables or default to example)
+# Target URLs (set via environment variables or default)
 TARGET_URL = os.environ.get("TARGET_URL", "http://host.docker.internal:8000")
 REPO_DIR = os.environ.get("REPO_DIR", os.path.join(BASE, "repo"))
 
@@ -38,15 +38,15 @@ def run(cmd, name="Command"):
         print(f"\n✅ {name} completed successfully")
 
 # ----------------------------
-# 1 Run Semgrep
+# 1️⃣ Run Semgrep
 # ----------------------------
 run(
-    f'docker run --rm -v "{REPO_DIR}:/src" semgrep/semgrep semgrep --config=auto /src > "{REPORTS_DIR}/semgrep_report.txt"',
+    f'docker run --rm -v "{REPO_DIR}:/src" -v "{REPORTS_DIR}:/reports" semgrep/semgrep semgrep --config=auto /src --json -o /reports/semgrep_report.txt',
     "Semgrep Scan"
 )
 
 # ----------------------------
-# 2️ Run OWASP ZAP Baseline Scan
+# 2️⃣ Run OWASP ZAP Baseline Scan
 # ----------------------------
 run(
     f'docker run --rm -v "{REPORTS_DIR}:/zap/wrk" zaproxy/zap-stable zap-baseline.py -t {TARGET_URL} -r /zap/wrk/zap_report.html',
@@ -54,7 +54,7 @@ run(
 )
 
 # ----------------------------
-# 3️ Run Nuclei Scan
+# 3️⃣ Run Nuclei Scan
 # ----------------------------
 run(
     f'docker run --rm -v "{REPORTS_DIR}:/root" projectdiscovery/nuclei -u {TARGET_URL} -o /root/nuclei_report.txt',
