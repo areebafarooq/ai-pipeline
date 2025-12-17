@@ -25,17 +25,16 @@ jobs:
 
       # 4️ Run Python Security Agent
       - name: Run Security Agent
-        run: |
-          python run_security_agent.py
+        run: python run_security_agent.py
         env:
           TARGET_URL: http://host.docker.internal:8000
           REPO_DIR: ${{ github.workspace }}/repo
 
-	# 4.5 Fix permissions
+      # 5️ Fix permissions so all reports are readable
       - name: Fix reports permissions
         run: chmod -R a+rwx reports
 
-      # 5️ Upload reports as artifacts
+      # 6️ Upload reports as artifacts
       - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
