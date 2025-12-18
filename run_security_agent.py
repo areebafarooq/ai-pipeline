@@ -6,7 +6,7 @@ import time
 # =============================
 # Wait for app to start
 # =============================
-def wait_for_app(host="test-app", port=8000, timeout=120):
+def wait_for_app(host="localhost", port=8000, timeout=120):
     print(f"\n⏳ Waiting for app at {host}:{port} to be ready...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -18,12 +18,15 @@ def wait_for_app(host="test-app", port=8000, timeout=120):
             time.sleep(2)
     raise TimeoutError(f"App did not start on {host}:{port} within {timeout} seconds")
 
-# Use container name inside GitHub Actions
-TARGET_HOST = os.environ.get("TARGET_HOST", "test-app")   # <- container name
+# =============================
+# Environment variables
+# =============================
+# Use localhost for GitHub Actions
+TARGET_HOST = os.environ.get("TARGET_HOST", "localhost")
 TARGET_PORT = int(os.environ.get("TARGET_PORT", 8000))
 TARGET_URL = os.environ.get("TARGET_URL", f"http://{TARGET_HOST}:{TARGET_PORT}")
 
-wait_for_app(host=TARGET_HOST, port=TARGET_PORT, timeout=120)  # give extra time
+wait_for_app(host=TARGET_HOST, port=TARGET_PORT, timeout=120)
 
 # =============================
 # Configuration
@@ -66,9 +69,9 @@ run(
 # =============================
 # OWASP ZAP – Dynamic App Scan
 # =============================
+# Use network=host for GitHub Actions to reach localhost
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/zap/reports" '
-    f'--network host '
+    f'docker run --rm -v "{REPORTS_DIR}:/zap/reports" --network host '
     f'zaproxy/zap-stable zap-baseline.py '
     f'-t {TARGET_URL} '
     f'-r /zap/reports/zap_report.html -T 120',
