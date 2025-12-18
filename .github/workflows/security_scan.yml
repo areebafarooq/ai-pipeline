@@ -34,6 +34,11 @@ jobs:
             sleep 2
           done
 
+      - name: Debug app container (quick)
+        run: |
+          docker ps -a
+          docker logs test-app || true
+
       - name: Create reports folder
         run: |
           mkdir -p reports
@@ -42,8 +47,8 @@ jobs:
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
-          # IMPORTANT: target container name, not localhost
           TARGET_URL: http://test-app:8000
+          DOCKER_NETWORK: zap-network
           REPO_DIR: ${{ github.workspace }}
 
       - name: Stop test app (cleanup)
@@ -60,4 +65,3 @@ jobs:
         with:
           name: security-reports
           path: reports/
-

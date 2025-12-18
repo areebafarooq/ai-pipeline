@@ -1,23 +1,65 @@
 import os
 import subprocess
-import socket
 import time
 from urllib.parse import urlparse
 
 
-def wait_for_app(host: str, port: int, timeout: int = 120):
-    print(f"\n⏳ Waiting for app at {host}:{port} to be ready...")
-    start_time = time.time()
+def wait_for_app_via_docker_network(target_url: str, network: str = "zap-network", timeout: int = 180):
+    """
+    Wait for the app to become reachable by running curl INSIDE a container attached to the Docker network.
+    This avoids the common CI issue where the GitHub runner host can't resolve container names like 'test-app'.
+    """
+    print(f"\n⏳ Waiting for app (via Docker network '{network}') at {target_url} ...")
+    start = time.time()
 
-    while time.time() - start_time < timeout:
+    while time.time() - start < timeout:
+        # curl container tries to reach the service over the docker network
+        cmd = (
+            f'docker run --rm --network {network} curlimages/curl:8.5.0 '
+            f'curl -s -o /dev/null -w "%{{http_code}}" "{target_url}/"'
+        )
+
         try:
-            with socket.create_connection((host, port), timeout=2):
-                print("✅ App is ready!")
+            result = subprocess.check_output(cmd, shell=True, text=True).strip()
+            # Accept anything that proves the server responds (200/301/302/401 etc.)
+            if result and result != "000":
+                print(f"✅ App responded with HTTP {result}")
                 return
-        except OSError:
-            time.sleep(2)
+        except subprocess.CalledProcessError:
+            pass
 
-    raise TimeoutError(f"❌ App did not start on {host}:{port} within {timeout} seconds")
+        time.sleep(3)
+
+    # If it times out, show app container logs for debugging
+    print("\n❌ Timed out waiting for app. Showing 'test-app' logs (if available):\n")
+    os.system("docker ps -a || true")
+    os.system("docker logs test-app || true")
+    raise TimeoutError(f"App did not respond at {target_url} within {timeout} seconds")
+
+
+def run(cmd: str, name: str):
+    print(f"\n🚀 Running: {name}")
+    print("=" * 60)
+    print(cmd)
+    print("-" * 60)
+
+    proc = subprocess.Popen(
+        cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="ignore",
+    )
+
+    for line in proc.stdout:
+        print(line, end="")
+
+    proc.wait()
+    if proc.returncode != 0:
+        print(f"\n❌ {name} finished with errors (exit code {proc.returncode})")
+    else:
+        print(f"\n✅ {name} completed successfully")
 
 
 # =============================
@@ -27,41 +69,11 @@ REPO_DIR = os.environ.get("REPO_DIR", os.getcwd())
 REPORTS_DIR = os.path.join(os.getcwd(), "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
-# Always read TARGET_URL from env (workflow will set it to http://test-app:8000)
-TARGET_URL = os.environ.get("TARGET_URL", "http://localhost:8000").strip()
-parsed = urlparse(TARGET_URL)
-TARGET_HOST = parsed.hostname or "localhost"
-TARGET_PORT = parsed.port or (443 if parsed.scheme == "https" else 80)
+TARGET_URL = os.environ.get("TARGET_URL", "http://test-app:8000").strip()
+NETWORK_NAME = os.environ.get("DOCKER_NETWORK", "zap-network").strip()
 
-# Wait until the app is reachable (IMPORTANT: this must match TARGET_URL host/port)
-wait_for_app(host=TARGET_HOST, port=TARGET_PORT, timeout=120)
-
-
-def run(cmd: str, name: str):
-    print(f"\n🚀 Running: {name}")
-    print("=" * 60)
-    print(cmd)
-    print("-" * 60)
-
-    process = subprocess.Popen(
-        cmd,
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        encoding="utf-8",
-        errors="ignore",
-    )
-
-    for line in process.stdout:
-        print(line, end="")
-
-    process.wait()
-    if process.returncode != 0:
-        print(f"\n❌ {name} finished with errors (exit code {process.returncode})")
-        # Do NOT raise — keep running the other tools and still upload artifacts
-    else:
-        print(f"\n✅ {name} completed successfully")
-
+# Wait until app is reachable from within the docker network
+wait_for_app_via_docker_network(TARGET_URL, network=NETWORK_NAME, timeout=180)
 
 # =============================
 # SEMGREP – Static Code Analysis
@@ -71,37 +83,35 @@ run(
     f'-v "{REPO_DIR}:/src" '
     f'-v "{REPORTS_DIR}:/reports" '
     f'semgrep/semgrep semgrep --config=auto /src --json -o /reports/semgrep_report.json',
-    "Semgrep (SAST) Scan",
+    "Semgrep (SAST) Scan"
 )
 
 # =============================
 # OWASP ZAP – Dynamic App Scan
 # =============================
-# Run on the same docker network as the app and target http://test-app:8000
 run(
     f'docker run --rm '
     f'-v "{REPORTS_DIR}:/zap/reports" '
-    f'--network zap-network '
+    f'--network {NETWORK_NAME} '
     f'zaproxy/zap-stable zap-baseline.py '
     f'-t "{TARGET_URL}" '
-    f'-r /zap/reports/zap_report.html '
-    f'-T 120',
-    "OWASP ZAP (DAST) Scan",
+    f'-r /zap/reports/zap_report.html -T 120',
+    "OWASP ZAP (DAST) Scan"
 )
 
 # =============================
 # NUCLEI – Vulnerability Scan
 # =============================
-# Also run on the same docker network so it can reach test-app
 run(
     f'docker run --rm '
     f'-v "{REPORTS_DIR}:/root" '
-    f'--network zap-network '
+    f'--network {NETWORK_NAME} '
     f'projectdiscovery/nuclei -u "{TARGET_URL}" '
     f'-severity low,medium,high,critical -o /root/nuclei_report.txt',
-    "Nuclei Scan",
+    "Nuclei Scan"
 )
 
 print("\n🎉 ALL SECURITY SCANS COMPLETED")
-print("📂 Reports should be in the 'reports/' folder")
+print("📂 Reports generated in the 'reports/' folder")
+
 
