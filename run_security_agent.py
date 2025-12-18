@@ -67,10 +67,11 @@ run(
 # OWASP ZAP – Dynamic App Scan
 # =============================
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/zap/wrk" '
+    f'docker run --rm -v "{REPORTS_DIR}:/zap/reports" '
+    f'--network host '
     f'zaproxy/zap-stable zap-baseline.py '
     f'-t {TARGET_URL} '
-    f'-r /zap/wrk/zap_report.html -T 120',
+    f'-r /zap/reports/zap_report.html -T 120',
     "OWASP ZAP (DAST) Scan"
 )
 

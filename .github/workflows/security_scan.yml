@@ -19,41 +19,44 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      # 3️ Build & run test application
+      # 3️ Create a Docker network so containers can communicate
+      - name: Create Docker network
+        run: docker network create zap-network
+
+      # 4️ Build & run test application
       - name: Build and run test app
         run: |
           docker build -t test-app .
-          docker run -d --name test-app -p 8000:8000 test-app
-          # Wait for the container to be ready
+          docker run -d --name test-app --network zap-network test-app
+          # Wait for app to be ready
           echo "⏳ Waiting for app to start..."
           for i in {1..15}; do
-            if nc -z localhost 8000; then
+            if docker exec test-app nc -z localhost 8000; then
               echo "✅ App is running!"
               break
             fi
             sleep 2
           done
 
-      # 4️ Create reports folder
+      # 5️ Create reports folder
       - name: Create reports folder
         run: mkdir -p reports
 
-      # 5️ Run Security Agent
+      # 6️ Run Security Agent
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
-          TARGET_HOST: localhost
-          TARGET_PORT: 8000
-          TARGET_URL: http://localhost:8000
+          TARGET_URL: http://test-app:8000   # ← use container name, not localhost
           REPO_DIR: ${{ github.workspace }}
 
-      # 6️ Stop test app container (cleanup)
+      # 7️ Stop test app container (cleanup)
       - name: Stop test app
         run: |
           docker stop test-app
           docker rm test-app
+          docker network rm zap-network
 
-      # 7️ Upload reports
+      # 8️ Upload reports
       - name: Upload Security Reports
         uses: actions/upload-artifact@v4
         with:
@@ -62,3 +65,4 @@ jobs:
             reports/semgrep_report.json
             reports/zap_report.html
             reports/nuclei_report.txt
+
