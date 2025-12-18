@@ -15,34 +15,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # 2️ Set up Docker
+      #2️ Setup Docker
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      # 3️ Build and run your app
-      - name: Build and run app
+      # 3️ Build & run test application (ONLY ONCE)
+      - name: Build and run test app
         run: |
-          docker build -t local-app ./      # make sure Dockerfile exists
-          docker run -d --name app -p 8000:8000 local-app
-        # App will be accessible at http://localhost:8000
+          docker build -t test-app ./app
+          docker run -d --name test-app -p 8000:8000 test-app
 
       # 4️ Create reports folder
       - name: Create reports folder
         run: mkdir -p reports
-	
-      # 4️.5 Build & start test application
-      - name: Start test application
-        run: |
-          docker build -t test-app ./app
-          docker run -d -p 8000:8000 test-app
-	
 
       # 5️ Run Security Agent
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
           TARGET_URL: http://localhost:8000
-          REPO_DIR: ${{ github.workspace }}/repo
+          REPO_DIR: ${{ github.workspace }}
 
       # 6️ Upload reports
       - name: Upload Security Reports
@@ -50,6 +42,6 @@ jobs:
         with:
           name: security-reports
           path: |
-            reports/semgrep_report.txt
+            reports/semgrep_report.json
             reports/zap_report.html
             reports/nuclei_report.txt
