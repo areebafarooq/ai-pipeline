@@ -59,6 +59,13 @@ jobs:
           docker rm test-app || true
           docker network rm zap-network || true
 
+      # ✅ NEW: fix permissions so upload-artifact can read everything
+      - name: Fix reports permissions
+        if: always()
+        run: |
+          sudo chown -R $USER:$USER reports || true
+          chmod -R a+rX reports || true
+
       - name: Upload Security Reports
         if: always()
         uses: actions/upload-artifact@v4
