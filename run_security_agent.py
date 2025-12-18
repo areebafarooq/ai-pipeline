@@ -21,9 +21,10 @@ def wait_for_app(host="localhost", port=8000, timeout=120):
 # =============================
 # Environment variables
 # =============================
-TARGET_HOST = os.environ.get("TARGET_HOST", "test-app")  # container name
-TARGET_PORT = int(os.environ.get("TARGET_PORT", 8000))
-TARGET_URL = os.environ.get("TARGET_URL", f"http://{TARGET_HOST}:{TARGET_PORT}")
+# GitHub Actions host can only reach localhost
+TARGET_HOST = "localhost"
+TARGET_PORT = 8000
+TARGET_URL = f"http://{TARGET_HOST}:{TARGET_PORT}"
 
 wait_for_app(host=TARGET_HOST, port=TARGET_PORT, timeout=120)
 

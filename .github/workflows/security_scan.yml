@@ -45,7 +45,7 @@ jobs:
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
-          TARGET_URL: http://test-app:8000
+          TARGET_URL: http://localhost:8000
           REPO_DIR: ${{ github.workspace }}
 
       # 7️ Stop test app container (cleanup)
