@@ -33,7 +33,7 @@ jobs:
           docker build -t test-app .
           docker run -d --name test-app --network zap-network test-app
 
-          echo "⏳ Waiting for app to start..."
+          echo "Waiting for app to start..."
           for i in {1..30}; do
             if docker exec test-app python -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',8000)); s.close()"; then
               echo "✅ App is running!"
