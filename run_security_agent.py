@@ -6,7 +6,7 @@ import time
 # =============================
 # Wait for app to start
 # =============================
-def wait_for_app(host="test-app", port=8000, timeout=120):
+def wait_for_app(host="localhost", port=8000, timeout=120):
     print(f"\n⏳ Waiting for app at {host}:{port} to be ready...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -80,7 +80,7 @@ run(
 # NUCLEI – Vulnerability Scan
 # =============================
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/root" --network zap-network '
+    f'docker run --rm -v "{REPORTS_DIR}:/root" '
     f'projectdiscovery/nuclei -u {TARGET_URL} '
     f'-severity low,medium,high,critical -o /root/nuclei_report.txt',
     "Nuclei Scan"
@@ -88,3 +88,4 @@ run(
 
 print("\n🎉 ALL SECURITY SCANS COMPLETED SUCCESSFULLY")
 print("📂 Reports generated in the 'reports/' folder")
+
