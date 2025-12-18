@@ -22,7 +22,7 @@ jobs:
       # 3️ Build & run test application
       - name: Build and run test app
         run: |
-          docker build -t test-app ./app
+          docker build -t test-app .
           docker run -d --name test-app -p 8000:8000 test-app
           # Wait for the container to be ready
           echo "⏳ Waiting for app to start..."
