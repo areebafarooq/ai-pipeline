@@ -6,7 +6,7 @@ import time
 # =============================
 # Wait for app to start
 # =============================
-def wait_for_app(host="localhost", port=8000, timeout=60):
+def wait_for_app(host="test-app", port=8000, timeout=120):
     print(f"\n⏳ Waiting for app at {host}:{port} to be ready...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -18,12 +18,12 @@ def wait_for_app(host="localhost", port=8000, timeout=60):
             time.sleep(2)
     raise TimeoutError(f"App did not start on {host}:{port} within {timeout} seconds")
 
-# Use environment variable if set (useful for GitHub Actions)
-TARGET_HOST = os.environ.get("TARGET_HOST", "localhost")
+# Use container name inside GitHub Actions
+TARGET_HOST = os.environ.get("TARGET_HOST", "test-app")   # <- container name
 TARGET_PORT = int(os.environ.get("TARGET_PORT", 8000))
 TARGET_URL = os.environ.get("TARGET_URL", f"http://{TARGET_HOST}:{TARGET_PORT}")
 
-wait_for_app(host=TARGET_HOST, port=TARGET_PORT, timeout=60)
+wait_for_app(host=TARGET_HOST, port=TARGET_PORT, timeout=120)  # give extra time
 
 # =============================
 # Configuration
