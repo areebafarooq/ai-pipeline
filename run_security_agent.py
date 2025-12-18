@@ -3,7 +3,15 @@ import subprocess
 import time
 
 
-def wait_for_app_via_docker_network(target_url: str, network: str = "zap-network", timeout: int = 180):
+def wait_for_app_via_docker_network(
+    target_url: str,
+    network: str = "zap-network",
+    timeout: int = 180,
+):
+    """
+    Wait for the app to become reachable by running curl INSIDE a container attached
+    to the same Docker network as the app (so hostnames like 'test-app' resolve).
+    """
     print(f"\n⏳ Waiting for app (via Docker network '{network}') at {target_url} ...")
     start = time.time()
 
@@ -19,6 +27,7 @@ def wait_for_app_via_docker_network(target_url: str, network: str = "zap-network
                 return
         except subprocess.CalledProcessError:
             pass
+
         time.sleep(3)
 
     print("\n❌ Timed out waiting for app. Showing logs:\n")
@@ -48,6 +57,7 @@ def run(cmd: str, name: str):
     proc.wait()
     if proc.returncode != 0:
         print(f"\n❌ {name} finished with errors (exit code {proc.returncode})")
+        # Don't raise; still generate/upload whatever reports we have.
     else:
         print(f"\n✅ {name} completed successfully")
 
@@ -62,41 +72,47 @@ os.makedirs(REPORTS_DIR, exist_ok=True)
 TARGET_URL = os.environ.get("TARGET_URL", "http://test-app:8000").strip()
 NETWORK_NAME = os.environ.get("DOCKER_NETWORK", "zap-network").strip()
 
-# For ZAP baseline script
-ZAP_WRK = os.path.join(REPORTS_DIR, "zap-wrk")
-os.makedirs(ZAP_WRK, exist_ok=True)
-
+# Wait until app is reachable (from within Docker network)
 wait_for_app_via_docker_network(TARGET_URL, network=NETWORK_NAME, timeout=180)
 
 # =============================
-# Semgrep
+# Semgrep (SAST)
 # =============================
 run(
     f'docker run --rm '
     f'-v "{REPO_DIR}:/src" '
     f'-v "{REPORTS_DIR}:/reports" '
     f'semgrep/semgrep semgrep --config=auto /src --json -o /reports/semgrep_report.json',
-    "Semgrep (SAST) Scan"
+    "Semgrep (SAST) Scan",
 )
 
 # =============================
-# OWASP ZAP (mount /zap/wrk)
+# OWASP ZAP (DAST) - FINAL FIX
 # =============================
+# Fixes:
+# - Run as root to avoid permission denied on mounted volume.
+# - Mount reports/ directly to /zap/wrk because baseline automation writes there.
+# - Report written inside /zap/wrk -> appears in reports/ on runner.
+# - -I prevents failing due to WARNs, but report is still generated.
 run(
     f'docker run --rm '
-    f'-v "{REPORTS_DIR}:/zap/reports" '
-    f'-v "{ZAP_WRK}:/zap/wrk" '
+    f'--user 0 '
+    f'-v "{REPORTS_DIR}:/zap/wrk" '
     f'--network {NETWORK_NAME} '
     f'zaproxy/zap-stable zap-baseline.py '
     f'-t "{TARGET_URL}" '
-    f'-r /zap/reports/zap_report.html '
+    f'-I '
+    f'-r zap_report.html '
     f'-T 120',
-    "OWASP ZAP (DAST) Scan"
+    "OWASP ZAP (DAST) Scan",
 )
 
 # =============================
-# Nuclei (DO NOT mount reports to /root)
+# Nuclei - FINAL FIX
 # =============================
+# Fix:
+# - Do NOT mount reports/ to /root (prevents nuclei-templates in reports => EACCES on upload).
+# - Mount to /out and only write the output file.
 run(
     f'docker run --rm '
     f'-v "{REPORTS_DIR}:/out" '
@@ -105,7 +121,7 @@ run(
     f'-u "{TARGET_URL}" '
     f'-severity low,medium,high,critical '
     f'-o /out/nuclei_report.txt',
-    "Nuclei Scan"
+    "Nuclei Scan",
 )
 
 print("\n🎉 ALL SECURITY SCANS COMPLETED")

@@ -51,6 +51,14 @@ jobs:
           DOCKER_NETWORK: zap-network
           REPO_DIR: ${{ github.workspace }}
 
+      - name: List reports (debug)
+        if: always()
+        run: |
+          echo "---- reports dir ----"
+          ls -lah reports || true
+          echo "---- reports tree ----"
+          find reports -maxdepth 3 -type f -print || true
+
       - name: Stop test app (cleanup)
         if: always()
         run: |
@@ -59,7 +67,6 @@ jobs:
           docker rm test-app || true
           docker network rm zap-network || true
 
-      # ✅ NEW: fix permissions so upload-artifact can read everything
       - name: Fix reports permissions
         if: always()
         run: |
