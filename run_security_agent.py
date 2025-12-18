@@ -6,7 +6,7 @@ import time
 # =============================
 # Wait for app to start
 # =============================
-def wait_for_app(host="localhost", port=8000, timeout=120):
+def wait_for_app(host="test-app", port=8000, timeout=120):
     print(f"\n⏳ Waiting for app at {host}:{port} to be ready...")
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -21,8 +21,7 @@ def wait_for_app(host="localhost", port=8000, timeout=120):
 # =============================
 # Environment variables
 # =============================
-# Use localhost for GitHub Actions
-TARGET_HOST = os.environ.get("TARGET_HOST", "localhost")
+TARGET_HOST = os.environ.get("TARGET_HOST", "test-app")  # container name
 TARGET_PORT = int(os.environ.get("TARGET_PORT", 8000))
 TARGET_URL = os.environ.get("TARGET_URL", f"http://{TARGET_HOST}:{TARGET_PORT}")
 
@@ -69,9 +68,8 @@ run(
 # =============================
 # OWASP ZAP – Dynamic App Scan
 # =============================
-# Use network=host for GitHub Actions to reach localhost
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/zap/reports" --network host '
+    f'docker run --rm -v "{REPORTS_DIR}:/zap/reports" --network zap-network '
     f'zaproxy/zap-stable zap-baseline.py '
     f'-t {TARGET_URL} '
     f'-r /zap/reports/zap_report.html -T 120',
@@ -82,7 +80,7 @@ run(
 # NUCLEI – Vulnerability Scan
 # =============================
 run(
-    f'docker run --rm -v "{REPORTS_DIR}:/root" '
+    f'docker run --rm -v "{REPORTS_DIR}:/root" --network zap-network '
     f'projectdiscovery/nuclei -u {TARGET_URL} '
     f'-severity low,medium,high,critical -o /root/nuclei_report.txt',
     "Nuclei Scan"
@@ -90,5 +88,3 @@ run(
 
 print("\n🎉 ALL SECURITY SCANS COMPLETED SUCCESSFULLY")
 print("📂 Reports generated in the 'reports/' folder")
-
-
