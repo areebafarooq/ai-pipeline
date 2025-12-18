@@ -29,6 +29,13 @@ jobs:
       # 4️ Create reports folder
       - name: Create reports folder
         run: mkdir -p reports
+	
+      # 4️.5 Build & start test application
+      - name: Start test application
+        run: |
+          docker build -t test-app ./app
+          docker run -d -p 8000:8000 test-app
+	
 
       # 5️ Run Security Agent
       - name: Run Security Agent
