@@ -11,56 +11,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️ Checkout repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # 2️ Set up Docker
       - name: Set up Docker
         uses: docker/setup-buildx-action@v2
 
-      # 3️ Create Docker network
       - name: Create Docker network
         run: docker network create zap-network || true
 
-      # 4️ Build & run test application
       - name: Build and run test app
         run: |
           docker build -t test-app .
           docker run -d --name test-app --network zap-network test-app
+
           echo "⏳ Waiting for app to start..."
           for i in {1..30}; do
-            if docker exec test-app nc -z localhost 8000; then
+            if docker exec test-app python -c "import socket; s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1',8000)); s.close()"; then
               echo "✅ App is running!"
               break
             fi
             sleep 2
           done
 
-      # 5️ Create reports folder
       - name: Create reports folder
-        run: mkdir -p reports
+        run: |
+          mkdir -p reports
+          chmod -R 777 reports
 
-      # 6️ Run Security Agent
       - name: Run Security Agent
         run: python run_security_agent.py
         env:
-          TARGET_URL: http://localhost:8000
+          # IMPORTANT: target container name, not localhost
+          TARGET_URL: http://test-app:8000
           REPO_DIR: ${{ github.workspace }}
 
-      # 7️ Stop test app container (cleanup)
-      - name: Stop test app
+      - name: Stop test app (cleanup)
+        if: always()
         run: |
-          docker stop test-app
-          docker rm test-app
+          docker logs test-app || true
+          docker stop test-app || true
+          docker rm test-app || true
           docker network rm zap-network || true
 
-      # 8️ Upload reports
       - name: Upload Security Reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-reports
-          path: |
-            reports/semgrep_report.json
-            reports/zap_report.html
-            reports/nuclei_report.txt
+          path: reports/
+
